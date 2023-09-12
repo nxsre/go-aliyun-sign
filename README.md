@@ -11,13 +11,13 @@ Compliance is not fully guaranteed, since I have not found the official document
 ## Installation
 
 ```
-go get -u github.com/HuanTeng/go-aliyun-sign
+go get -u github.com/nxsre/go-aliyun-sign
 ```
 
 ## Usage
 
 ```golang
-import "github.com/HuanTeng/go-aliyun-sign"
+import "github.com/nxsre/go-aliyun-sign"
 
 // Prepare a Request
 req, _ := http.NewRequest("POST", url, body)

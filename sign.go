@@ -1,10 +1,12 @@
 package sign
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -34,6 +36,40 @@ func Sign(req *http.Request, appKey, appSecret string) error {
 	req.Header.Set(HTTPHeaderCASignature, hash)
 	req.Header.Set(HTTPHeaderCASignatureHeaders, strings.Join(hdrKeys, ","))
 	return nil
+}
+
+// SignRequest a request with application credentials (appKey, appSecret)
+func SignRequest(req *http.Request, appKey, appSecret string) (*http.Request, error) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	tmpReq := req.Clone(req.Context())
+
+	// clone body
+	tmpReq.Body = io.NopCloser(bytes.NewReader(body))
+	tmpReq.Body = io.NopCloser(bytes.NewReader(body))
+
+	ts := time.Now().UnixNano() / 1000000
+	tmpReq.Header.Set(HTTPHeaderCATimestamp, strconv.FormatInt(ts, 10))
+	r := strconv.FormatInt(time.Now().UnixNano(), 10)
+	tmpReq.Header.Set(HTTPHeaderCANonce, r)
+	tmpReq.Header.Set(HTTPHeaderCAKey, appKey)
+
+	str, hdrKeys, err := buildStringToSign(tmpReq)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("Sign string: %s", str)
+	log.Printf("Signed Headers: %+v", hdrKeys)
+	hasher := hmac.New(sha256.New, []byte(appSecret))
+	hasher.Write([]byte(str))
+	hash := base64.StdEncoding.EncodeToString(hasher.Sum([]byte{}))
+	log.Printf("Signature: %s", hash)
+
+	//req.Header.Set(HTTPHeaderCASignature, hash)
+	//req.Header.Set(HTTPHeaderCASignatureHeaders, strings.Join(hdrKeys, ","))
+	return tmpReq, nil
 }
 
 func buildStringToSign(req *http.Request) (string, []string, error) {
