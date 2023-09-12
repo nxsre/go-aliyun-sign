@@ -56,12 +56,11 @@ func SignRequest(req *http.Request, appKey, appSecret string) (*http.Request, er
 	tmpReq.Header.Set(HTTPHeaderCANonce, r)
 	tmpReq.Header.Set(HTTPHeaderCAKey, appKey)
 
-	str, hdrKeys, err := buildStringToSign(tmpReq)
+	str, _, err := buildStringToSign(tmpReq)
 	if err != nil {
 		return nil, err
 	}
 	log.Printf("Sign string: %s", str)
-	log.Printf("Signed Headers: %+v", hdrKeys)
 	hasher := hmac.New(sha256.New, []byte(appSecret))
 	hasher.Write([]byte(str))
 	hash := base64.StdEncoding.EncodeToString(hasher.Sum([]byte{}))
