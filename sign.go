@@ -38,7 +38,7 @@ func Sign(req *http.Request, appKey, appSecret string) error {
 	return nil
 }
 
-// SignRequest a request with application credentials (appKey, appSecret)
+// SignServerRequest a request with application credentials (appKey, appSecret)
 func SignRequest(req *http.Request, appKey, appSecret string) (*http.Request, error) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -47,7 +47,7 @@ func SignRequest(req *http.Request, appKey, appSecret string) (*http.Request, er
 	tmpReq := req.Clone(req.Context())
 
 	// clone body
-	tmpReq.Body = io.NopCloser(bytes.NewReader(body))
+	req.Body = io.NopCloser(bytes.NewReader(body))
 	tmpReq.Body = io.NopCloser(bytes.NewReader(body))
 
 	ts := time.Now().UnixNano() / 1000000
@@ -92,7 +92,6 @@ func buildStringToSign(req *http.Request) (string, []string, error) {
 		return "", nil, err
 	}
 	s += paramStr
-
 	return s, hdrKeys, nil
 }
 
@@ -115,12 +114,15 @@ func buildHeaderStringToSign(hdr http.Header) (string, []string, error) {
 }
 
 func buildParamStringToSign(req *http.Request) (string, error) {
-	var err error
-	newReq := *req
-	newReq.Body, err = req.GetBody()
+	buf, err := io.ReadAll(req.Body)
 	if err != nil {
 		return "", err
 	}
+
+	newReq := *req
+	req.Body = io.NopCloser(bytes.NewBuffer(buf))
+	newReq.Body = io.NopCloser(bytes.NewBuffer(buf))
+
 	if err := newReq.ParseForm(); err != nil {
 		return "", err
 	}
