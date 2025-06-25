@@ -71,6 +71,40 @@ func SignRequest(req *http.Request, appKey, appSecret string) (*http.Request, er
 	return tmpReq, nil
 }
 
+func VerifySign(req *http.Request, appKey, appSecret string) error {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return err
+	}
+	tmpReq := req.Clone(req.Context())
+
+	// clone body
+	req.Body = io.NopCloser(bytes.NewReader(body))
+	tmpReq.Body = io.NopCloser(bytes.NewReader(body))
+
+	for hk, _ := range tmpReq.Header {
+		if strings.HasPrefix(http.CanonicalHeaderKey(hk), HTTPHeaderCAPrefix) {
+			tmpReq.Header.Del(hk)
+		}
+	}
+
+	tmpReq.Header.Set(HTTPHeaderCATimestamp, req.Header.Get(HTTPHeaderCATimestamp))
+	tmpReq.Header.Set(HTTPHeaderCANonce, req.Header.Get(HTTPHeaderCANonce))
+	tmpReq.Header.Set(HTTPHeaderCAKey, appKey)
+
+	str, _, err := buildStringToSign(tmpReq)
+	if err != nil {
+		return err
+	}
+	log.Printf("Sign string: %s", str)
+	hasher := hmac.New(sha256.New, []byte(appSecret))
+	hasher.Write([]byte(str))
+	hash := base64.StdEncoding.EncodeToString(hasher.Sum([]byte{}))
+	log.Printf("Signature: %s", hash)
+
+	return nil
+}
+
 func buildStringToSign(req *http.Request) (string, []string, error) {
 	s := ""
 	s += strings.ToUpper(req.Method) + "\n"
@@ -113,9 +147,13 @@ func buildHeaderStringToSign(hdr http.Header) (string, []string, error) {
 }
 
 func buildParamStringToSign(req *http.Request) (string, error) {
-	buf, err := io.ReadAll(req.Body)
-	if err != nil {
-		return "", err
+	buf := []byte{}
+	var err error
+	if req.Body != nil {
+		buf, err = io.ReadAll(req.Body)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	newReq := *req
