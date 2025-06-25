@@ -71,10 +71,10 @@ func SignRequest(req *http.Request, appKey, appSecret string) (*http.Request, er
 	return tmpReq, nil
 }
 
-func VerifySign(req *http.Request, appKey, appSecret string) error {
+func VerifySign(req *http.Request, appKey, appSecret string) (bool, error) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		return err
+		return false, err
 	}
 	tmpReq := req.Clone(req.Context())
 
@@ -94,15 +94,12 @@ func VerifySign(req *http.Request, appKey, appSecret string) error {
 
 	str, _, err := buildStringToSign(tmpReq)
 	if err != nil {
-		return err
+		return false, err
 	}
-	log.Printf("Sign string: %s", str)
 	hasher := hmac.New(sha256.New, []byte(appSecret))
 	hasher.Write([]byte(str))
 	hash := base64.StdEncoding.EncodeToString(hasher.Sum([]byte{}))
-	log.Printf("Signature: %s", hash)
-
-	return nil
+	return req.Header.Get(HTTPHeaderCASignature) == hash, nil
 }
 
 func buildStringToSign(req *http.Request) (string, []string, error) {
